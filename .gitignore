@@ -10,5 +10,6 @@ build/
 next-env.d.ts
 npm-debug.log*
 .admin.production.txt
+.integration.production.txt
 
 .vercel

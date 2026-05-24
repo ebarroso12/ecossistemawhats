@@ -63,6 +63,43 @@ paths:
       responses:
         "202":
           description: Message queued
+  /api/commands:
+    post:
+      summary: Ingest WhatsApp or Telegram command and create a microtask
+      security:
+        - bearerAuth: []
+        - telegramSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, text]
+              properties:
+                channel:
+                  type: string
+                  enum: [whatsapp, telegram]
+                from:
+                  type: string
+                  description: WhatsApp E.164 number
+                chatId:
+                  type: string
+                  description: Telegram chat ID
+                text:
+                  type: string
+                  examples: [/hoje, /estoque, /delegar conferir estoque amanha]
+                contactName:
+                  type: string
+                payload:
+                  type: object
+      responses:
+        "202":
+          description: Command accepted and microtask created or simulated
+        "401":
+          description: Invalid bearer or Telegram secret
+        "403":
+          description: Sender not allowed
 components:
   securitySchemes:
     basicAuth:
@@ -75,3 +112,7 @@ components:
       type: apiKey
       in: header
       name: x-webflow-signature
+    telegramSecret:
+      type: apiKey
+      in: header
+      name: x-telegram-bot-api-secret-token
