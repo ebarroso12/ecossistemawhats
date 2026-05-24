@@ -7,7 +7,9 @@ Dashboard Vercel para operar o segundo cerebro do ecossistema Dr. Edson.
 - CRM central de contatos.
 - Linha do tempo de webhooks.
 - Controle de tarefas operacionais.
+- Microtarefas detalhadas por agente OpenClaw.
 - Ponte para WhatsApp via OpenClaw.
+- Comandos por WhatsApp e Telegram.
 - Entrada para Webflow Events com assinatura HMAC.
 - Base pronta para Fireflies e Carta CRM.
 - Banco Supabase com RLS, indexes e service-role server-side.
@@ -33,6 +35,10 @@ Variaveis:
 - `OPENCLAW_ECOSYSTEM_HUB_WEBHOOK_URL`
 - `OPENCLAW_ECOSYSTEM_HUB_WEBHOOK_SECRET`
 - `WHATSAPP_DEFAULT_TO`
+- `WHATSAPP_ALLOWED_NUMBERS`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_ALLOWED_CHAT_IDS`
+- `OPENCLAW_TELEGRAM_WEBHOOK_SECRET`
 
 ## Webflow
 
@@ -50,6 +56,25 @@ O app chama o OpenClaw Ecosystem Hub. Para WhatsApp Business API oficial via Rub
 2. enviar livre apenas dentro da janela de 24h;
 3. fora da janela, usar template aprovado.
 
+## Telegram
+
+Telegram deve operar como canal de comando rapido para o mesmo hub. Todo chat precisa estar em `TELEGRAM_ALLOWED_CHAT_IDS`; comando recebido vira evento e microtarefa antes de execucao.
+
+Comandos principais:
+
+- `/hoje`
+- `/estoque`
+- `/pacientes`
+- `/financeiro`
+- `/tarefas`
+- `/delegar`
+- `/status`
+- `/resumir`
+
+## Microtarefas
+
+Toda acao do agente segue o contrato em `docs/contracts/microtasks.md`: objetivo, checklist, prioridade, permissao, saida esperada e evidencia. A operacao diaria esta em `docs/runbooks/daily-right-hand.md`.
+
 ## OpenClaw Workspace
 
 Este dashboard e a memoria do ecossistema devem espelhar a organizacao:
@@ -57,4 +82,5 @@ Este dashboard e a memoria do ecossistema devem espelhar a organizacao:
 - contatos e eventos como memoria semantica;
 - tarefas como memoria procedural;
 - falhas e reprocessamentos como memoria episodica;
-- agentes por area: WhatsApp, Webflow, Fireflies, CRM, financeiro e clinica.
+- microtarefas como execucao diaria;
+- agentes por area: WhatsApp, Telegram, Webflow, Fireflies, CRM, financeiro, estoque e clinica.

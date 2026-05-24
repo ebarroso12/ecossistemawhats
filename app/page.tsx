@@ -14,12 +14,13 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Send,
   UserRound,
   Workflow,
 } from 'lucide-react';
 import { getDashboardData, type EcosystemEvent } from '@/lib';
 
-const navItems = ['Overview', 'Conversations', 'Webhooks', 'Contacts', 'Tasks', 'Automations', 'Database', 'Settings'];
+const navItems = ['Overview', 'Conversations', 'Webhooks', 'Contacts', 'Tasks', 'Microtasks', 'Automations', 'Database', 'Settings'];
 
 const automations = [
   { name: 'WhatsApp', icon: MessageSquareText, status: 'Operacional', detail: 'OpenClaw entrega e fallback por hub' },
@@ -120,6 +121,8 @@ export default async function Home() {
                 ['Tarefas', fmt(data.kpis.openTasks), CalendarClock, 'Abertas agora'],
                 ['Contatos', fmt(data.kpis.contacts), UserRound, 'No CRM'],
                 ['Webhooks hoje', fmt(data.kpis.webhooksToday), Radio, 'Eventos recebidos'],
+                ['Microtasks', fmt(data.kpis.microtasksOpen), Bot, 'Na fila dos agentes'],
+                ['Canais', fmt(data.kpis.channelsActive), Send, 'WhatsApp e Telegram'],
                 ['Saude', `${data.kpis.automationHealth}%`, ShieldCheck, 'Automacoes OK'],
               ].map(([label, value, Icon, detail]) => (
                 <div key={label as string} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -204,12 +207,81 @@ export default async function Home() {
                           <p className="text-sm font-medium text-slate-800">{task.title}</p>
                           <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">{task.area}</span>
                         </div>
-                        <p className="mt-2 text-xs text-slate-500">{task.status} · {task.priority}</p>
+                        <p className="mt-2 text-xs text-slate-500">{task.status} - {task.priority}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               </aside>
+            </section>
+
+            <section className="grid grid-cols-[1.4fr_1fr] gap-5 max-xl:grid-cols-1">
+              <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 px-4 py-3">
+                  <h2 className="text-sm font-bold">Fila de microtarefas dos agentes</h2>
+                  <p className="text-xs text-slate-500">Cada pedido do WhatsApp ou Telegram vira tarefa pequena, auditavel e com saida esperada.</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[820px] border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-4 py-3">Agente</th>
+                        <th className="px-4 py-3">Canal</th>
+                        <th className="px-4 py-3">Microtarefa</th>
+                        <th className="px-4 py-3">Checklist</th>
+                        <th className="px-4 py-3">Saida</th>
+                        <th className="px-4 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.microtasks.map((task) => (
+                        <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="px-4 py-3 font-semibold text-slate-700">{task.agent_key}</td>
+                          <td className="px-4 py-3">
+                            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{task.channel}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-slate-900">{task.title}</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">{task.objective}</p>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{task.checklist.length} passos</td>
+                          <td className="max-w-sm px-4 py-3 text-slate-600">{task.output_contract}</td>
+                          <td className="px-4 py-3">
+                            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
+                              {task.status} - {task.priority}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <Send size={18} className="text-teal-700" />
+                  <h2 className="text-sm font-bold">Comandos WhatsApp e Telegram</h2>
+                </div>
+                <div className="space-y-2">
+                  {data.commands.map((command) => (
+                    <div key={command.id} className="rounded-lg border border-slate-200 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{command.command}</p>
+                          <p className="mt-1 text-xs text-slate-500">{command.description}</p>
+                        </div>
+                        <span className="rounded-md bg-teal-50 px-2 py-1 text-[11px] font-semibold text-teal-700">{command.channel}</span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500">
+                        <p><span className="font-semibold text-slate-700">Agente:</span> {command.agent_key}</p>
+                        <p><span className="font-semibold text-slate-700">Permissao:</span> {command.permission_level}</p>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">{command.output_contract}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </section>
 
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
