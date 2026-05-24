@@ -20,7 +20,17 @@ import {
 } from 'lucide-react';
 import { getDashboardData, type EcosystemEvent } from '@/lib';
 
-const navItems = ['Overview', 'Conversations', 'Webhooks', 'Contacts', 'Tasks', 'Microtasks', 'Automations', 'Database', 'Settings'];
+const navItems = [
+  { label: 'Overview', icon: Activity },
+  { label: 'Conversations', icon: MessageSquareText },
+  { label: 'Webhooks', icon: Radio },
+  { label: 'Contacts', icon: UserRound },
+  { label: 'Tasks', icon: CalendarClock },
+  { label: 'Microtasks', icon: Bot },
+  { label: 'Automations', icon: Workflow },
+  { label: 'Database', icon: Database },
+  { label: 'Settings', icon: Settings },
+];
 
 const automations = [
   { name: 'WhatsApp', icon: MessageSquareText, status: 'Operacional', detail: 'OpenClaw entrega e fallback por hub' },
@@ -61,15 +71,15 @@ export default async function Home() {
           </div>
 
           <nav className="space-y-1">
-            {navItems.map((item, index) => (
+            {navItems.map(({ label, icon: Icon }, index) => (
               <button
-                key={item}
+                key={label}
                 className={`flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition ${
                   index === 0 ? 'bg-teal-50 font-semibold text-teal-800' : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                {index === 0 ? <Activity size={16} /> : index === 2 ? <Radio size={16} /> : index === 6 ? <Database size={16} /> : <Workflow size={16} />}
-                {item}
+                <Icon size={16} />
+                {label}
               </button>
             ))}
           </nav>
