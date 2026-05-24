@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ecossistemawhats.vercel.app/schemas/event-envelope.schema.json",
+  "title": "Ecossistema Whats Event Envelope",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string", "description": "Provider event id. Used for idempotency when present." },
+    "eventId": { "type": "string" },
+    "idempotencyKey": { "type": "string" },
+    "correlationId": { "type": "string" },
+    "kind": { "type": "string" },
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "contactName": { "type": "string" },
+    "contactPhone": { "type": "string", "pattern": "^\\+[1-9][0-9]{7,14}$" },
+    "contactEmail": { "type": "string", "format": "email" },
+    "priority": { "enum": ["critical", "high", "normal", "low"] },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  },
+  "required": ["kind", "summary"]
+}

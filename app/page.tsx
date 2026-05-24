@@ -107,6 +107,12 @@ export default async function Home() {
           </header>
 
           <div className="space-y-5 p-6">
+            {data.degraded && (
+              <section className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Banco Supabase ainda nao esta ativo neste deploy. O painel esta em modo demonstracao com dados de exemplo ate as variaveis e o schema serem configurados.
+              </section>
+            )}
+
             <section className="grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-1">
               {[
                 ['Mensagens', fmt(data.kpis.messagesSent), MessageSquareText, 'WhatsApp enviados'],

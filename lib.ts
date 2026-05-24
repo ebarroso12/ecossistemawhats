@@ -1,3 +1,4 @@
+import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
@@ -5,6 +6,7 @@ export type EventStatus = 'received' | 'queued' | 'sent' | 'failed';
 
 export type EcosystemEvent = {
   id: string;
+  external_id: string | null;
   source: string;
   kind: string;
   title: string;
@@ -41,6 +43,8 @@ export type DashboardData = {
   events: EcosystemEvent[];
   tasks: EcosystemTask[];
   contacts: EcosystemContact[];
+  degraded: boolean;
+  source: 'supabase' | 'sample-data';
   kpis: {
     messagesSent: number;
     failures: number;
@@ -54,6 +58,8 @@ export type DashboardData = {
 const now = new Date();
 
 export const sampleDashboardData: DashboardData = {
+  degraded: true,
+  source: 'sample-data',
   kpis: {
     messagesSent: 128,
     failures: 2,
@@ -75,6 +81,7 @@ export const sampleDashboardData: DashboardData = {
   events: [
     {
       id: 'e1',
+      external_id: 'sample-e1',
       source: 'injetaveis',
       kind: 'secretario-operacional',
       title: 'Resumo operacional recebido',
@@ -89,6 +96,7 @@ export const sampleDashboardData: DashboardData = {
     },
     {
       id: 'e2',
+      external_id: 'sample-e2',
       source: 'webflow',
       kind: 'form_submission',
       title: 'Novo formulario Webflow',
@@ -103,6 +111,7 @@ export const sampleDashboardData: DashboardData = {
     },
     {
       id: 'e3',
+      external_id: 'sample-e3',
       source: 'fireflies',
       kind: 'meeting_summary',
       title: 'Resumo de reuniao convertido',
@@ -136,7 +145,11 @@ export async function getDashboardData(): Promise<DashboardData> {
   ]);
 
   if (eventsResult.error || tasksResult.error || contactsResult.error) {
-    return sampleDashboardData;
+    return {
+      ...sampleDashboardData,
+      degraded: true,
+      source: 'sample-data',
+    };
   }
 
   const events = (eventsResult.data ?? []) as EcosystemEvent[];
@@ -148,6 +161,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     events,
     tasks,
     contacts,
+    degraded: false,
+    source: 'supabase',
     kpis: {
       messagesSent: events.filter((event) => event.status === 'sent').length,
       failures: events.filter((event) => event.status === 'failed').length,
@@ -166,11 +181,22 @@ export function verifyBearer(request: Request): boolean {
   return safeEqual(value, expected);
 }
 
-export function verifyWebflowSignature(rawBody: string, signature: string | null): boolean {
+export function verifyWebflowSignature(rawBody: string, timestamp: string | null, signature: string | null): boolean {
   const secret = process.env.WEBFLOW_WEBHOOK_SECRET;
-  if (!secret || !signature) return false;
-  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-  return safeEqual(signature, expected);
+  if (!secret || !signature || !timestamp) return false;
+
+  const sentAt = Number(timestamp) * 1000;
+  if (!Number.isFinite(sentAt)) return false;
+
+  const ageMs = Math.abs(Date.now() - sentAt);
+  if (ageMs > 5 * 60 * 1000) return false;
+
+  const candidates = [
+    crypto.createHmac('sha256', secret).update(`${timestamp}${rawBody}`).digest('hex'),
+    crypto.createHmac('sha256', secret).update(`${timestamp}:${rawBody}`).digest('hex'),
+  ];
+
+  return candidates.some((expected) => safeEqual(signature, expected));
 }
 
 function safeEqual(left: string, right: string): boolean {
@@ -181,12 +207,14 @@ function safeEqual(left: string, right: string): boolean {
 }
 
 export function normalizeEvent(source: string, payload: Record<string, unknown>) {
+  const externalId = text(payload.eventId) || text(payload.id) || text(payload.webhookId) || null;
   const title = text(payload.title) || text(payload.kind) || `Evento ${source}`;
   const summary = text(payload.summary) || text(payload.aiSummary) || text(payload.message) || 'Evento recebido pelo ecossistema.';
   const contactName = text(payload.contactName) || text(payload.patientName) || text(payload.name) || 'Contato nao informado';
   const contactPhone = text(payload.contactPhone) || text(payload.patientPhone) || text(payload.phone) || null;
 
   return {
+    external_id: externalId,
     source,
     kind: text(payload.kind) || 'webhook',
     title,
@@ -197,6 +225,10 @@ export function normalizeEvent(source: string, payload: Record<string, unknown>)
     priority: priority(payload.priority),
     payload,
   };
+}
+
+export function eventKeyFromRawBody(rawBody: string): string {
+  return crypto.createHash('sha256').update(rawBody || '{}').digest('hex');
 }
 
 function text(value: unknown): string {

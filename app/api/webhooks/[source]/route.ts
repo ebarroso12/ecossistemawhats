@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin, normalizeEvent, verifyBearer, verifyWebflowSignature } from '@/lib';
+import { eventKeyFromRawBody, getSupabaseAdmin, normalizeEvent, verifyBearer, verifyWebflowSignature } from '@/lib';
 
 type Params = {
   params: Promise<{ source: string }>;
@@ -12,7 +12,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   if (isWebflow) {
     const signature = request.headers.get('x-webflow-signature');
-    if (!verifyWebflowSignature(rawBody, signature) && !verifyBearer(request)) {
+    const timestamp = request.headers.get('x-webflow-timestamp');
+    if (!verifyWebflowSignature(rawBody, timestamp, signature)) {
       return NextResponse.json({ error: 'invalid webflow signature' }, { status: 401 });
     }
   } else if (!verifyBearer(request)) {
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   const event = normalizeEvent(source, payload);
+  event.external_id = event.external_id || eventKeyFromRawBody(rawBody);
   const supabase = getSupabaseAdmin();
 
   if (!supabase) {
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { data, error } = await supabase
     .from('ecosystem_events')
-    .insert(event)
+    .upsert(event, { onConflict: 'source,external_id' })
     .select('id')
     .single();
 
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   if (event.contact_phone || event.contact_name) {
-    await supabase.from('ecosystem_contacts').upsert({
+    const { error: contactError } = await supabase.from('ecosystem_contacts').upsert({
       source,
       contact_key: event.contact_phone || `${source}:${event.contact_name}`,
       name: event.contact_name,
@@ -52,6 +54,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       last_seen_at: new Date().toISOString(),
       metadata: { lastEventId: data.id, lastKind: event.kind },
     }, { onConflict: 'source,contact_key' });
+
+    if (contactError) {
+      return NextResponse.json({ ok: true, stored: true, id: data.id, warning: contactError.message }, { status: 207 });
+    }
   }
 
   return NextResponse.json({ ok: true, stored: true, id: data.id }, { status: 202 });
