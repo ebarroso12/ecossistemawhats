@@ -43,5 +43,5 @@ function unauthorized() {
 }
 
 export const config = {
-  matcher: ['/', '/api/events', '/api/messages/:path*'],
+  matcher: ['/', '/api/events', '/api/messages/:path*', '/api/settings/:path*'],
 };
