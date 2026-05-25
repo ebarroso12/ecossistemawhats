@@ -2,6 +2,8 @@
 
 Todos os comandos entram no hub, passam por autenticacao de numero/chat permitido, viram evento, depois microtarefa.
 
+Bot Telegram do ecossistema: `https://t.me/EdsonOpenclaw_bot`.
+
 ## Comandos Base
 
 | Comando | Canal | Permissao | Agente | Resposta |
@@ -33,3 +35,14 @@ Todos os comandos entram no hub, passam por autenticacao de numero/chat permitid
 6. Salva evidencia.
 7. Responde no mesmo canal.
 8. Envia alerta para `+5516992943215` quando houver falha, estoque critico, aniversario importante, paciente pendente ou decisao que precisa aprovacao.
+
+## Ativacao Telegram
+
+Variaveis obrigatorias:
+
+- `TELEGRAM_BOT_USERNAME=EdsonOpenclaw_bot`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_ALLOWED_CHAT_IDS`
+- `OPENCLAW_TELEGRAM_WEBHOOK_SECRET`
+
+Enquanto `TELEGRAM_ALLOWED_CHAT_IDS` estiver vazio em producao, nenhum chat deve executar comando. O primeiro teste deve ser `/status`, depois `/hoje`.

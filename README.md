@@ -60,6 +60,11 @@ O app chama o OpenClaw Ecosystem Hub. Para WhatsApp Business API oficial via Rub
 
 Telegram deve operar como canal de comando rapido para o mesmo hub. Todo chat precisa estar em `TELEGRAM_ALLOWED_CHAT_IDS`; comando recebido vira evento e microtarefa antes de execucao.
 
+Bot registrado no ecossistema:
+
+- `https://t.me/EdsonOpenclaw_bot`
+- username: `EdsonOpenclaw_bot`
+
 Comandos principais:
 
 - `/hoje`
@@ -70,6 +75,14 @@ Comandos principais:
 - `/delegar`
 - `/status`
 - `/resumir`
+
+Para ativar webhook real:
+
+1. obter `TELEGRAM_BOT_TOKEN` no BotFather;
+2. enviar uma mensagem para o bot;
+3. obter o `chat_id` autorizado;
+4. configurar `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS` e `OPENCLAW_TELEGRAM_WEBHOOK_SECRET` no Vercel;
+5. apontar o webhook do Telegram para o hub OpenClaw ou para `/api/commands` com payload normalizado.
 
 ## Microtarefas
 
