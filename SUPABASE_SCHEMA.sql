@@ -64,7 +64,7 @@ create table if not exists public.ecosystem_messages (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint ecosystem_messages_direction_check check (direction in ('inbound', 'outbound')),
-  constraint ecosystem_messages_channel_check check (channel in ('whatsapp', 'email', 'webhook', 'openclaw')),
+  constraint ecosystem_messages_channel_check check (channel in ('whatsapp', 'telegram', 'email', 'webhook', 'openclaw')),
   constraint ecosystem_messages_status_check check (status in ('queued', 'sent', 'failed', 'received'))
 );
 
@@ -171,3 +171,45 @@ create policy "service role manages commands" on public.ecosystem_commands
 
 create policy "service role manages microtasks" on public.ecosystem_microtasks
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
+
+insert into public.ecosystem_agents (agent_key, name, role, channel_scope, workspace_path, metadata)
+values
+  ('openclaw-router', 'OpenClaw Router', 'Quebra pedidos em microtarefas e escolhe agentes.', '{whatsapp,telegram,dashboard,openclaw}', '/workspace/router', '{"risk":"approval gateway"}'),
+  ('secretario-clinica', 'Secretario Clinica', 'Agenda, pacientes, pendencias, aniversarios e comunicacao operacional.', '{whatsapp,telegram,dashboard}', '/workspace/secretaria', '{"daily_brief":"07:30"}'),
+  ('estoque-injetaveis', 'Estoque Injetaveis', 'Saldo minimo, vencimento, reposicao e itens sem lancamento.', '{whatsapp,telegram,dashboard}', '/workspace/estoque', '{"domain":"injectables"}'),
+  ('crm-pacientes', 'CRM Pacientes', 'Leads, follow-up, aniversarios, protocolos e retornos.', '{whatsapp,telegram,dashboard}', '/workspace/crm', '{"domain":"patients"}'),
+  ('financeiro-clinica', 'Financeiro Clinica', 'Entradas, saidas, atrasos, alertas e previsao de caixa.', '{whatsapp,telegram,dashboard}', '/workspace/financeiro', '{"domain":"finance"}'),
+  ('fireflies-memoria', 'Fireflies Memoria', 'Reunioes, decisoes, tarefas e memoria permanente.', '{telegram,dashboard,openclaw}', '/workspace/memoria', '{"source":"fireflies"}')
+on conflict (agent_key) do update set
+  name = excluded.name,
+  role = excluded.role,
+  channel_scope = excluded.channel_scope,
+  workspace_path = excluded.workspace_path,
+  metadata = excluded.metadata,
+  updated_at = now();
+
+insert into public.ecosystem_commands (channel, command, description, agent_key, permission_level, output_contract)
+values
+  ('whatsapp', '/hoje', 'Resumo do dia com agenda, pacientes, estoque, financeiro e pendencias.', 'secretario-clinica', 'read', 'Resumo executivo em ate 12 linhas.'),
+  ('telegram', '/hoje', 'Resumo do dia com agenda, pacientes, estoque, financeiro e pendencias.', 'secretario-clinica', 'read', 'Resumo executivo em ate 12 linhas.'),
+  ('whatsapp', '/estoque', 'Itens criticos, vencimentos, reposicao e falta de lancamento.', 'estoque-injetaveis', 'read', 'Tabela compacta com prioridade.'),
+  ('telegram', '/estoque', 'Itens criticos, vencimentos, reposicao e falta de lancamento.', 'estoque-injetaveis', 'read', 'Tabela compacta com prioridade.'),
+  ('whatsapp', '/pacientes', 'Pacientes sem retorno, aniversarios e protocolos.', 'crm-pacientes', 'read', 'Lista priorizada com contato, motivo e proxima acao.'),
+  ('telegram', '/pacientes', 'Pacientes sem retorno, aniversarios e protocolos.', 'crm-pacientes', 'read', 'Lista priorizada com contato, motivo e proxima acao.'),
+  ('whatsapp', '/financeiro', 'Entradas, saidas, atrasos e alertas financeiros.', 'financeiro-clinica', 'read', 'Resumo com saldo, riscos e pendencias.'),
+  ('telegram', '/financeiro', 'Entradas, saidas, atrasos e alertas financeiros.', 'financeiro-clinica', 'read', 'Resumo com saldo, riscos e pendencias.'),
+  ('whatsapp', '/tarefas', 'Fila por prioridade e agente.', 'openclaw-router', 'read', 'Lista por prioridade, agente e bloqueio.'),
+  ('telegram', '/tarefas', 'Fila por prioridade e agente.', 'openclaw-router', 'read', 'Lista por prioridade, agente e bloqueio.'),
+  ('whatsapp', '/delegar', 'Transforma pedido livre em microtarefas para agentes.', 'openclaw-router', 'approval_required', 'Plano, responsavel, prazo e confirmacao.'),
+  ('telegram', '/delegar', 'Transforma pedido livre em microtarefas para agentes.', 'openclaw-router', 'approval_required', 'Plano, responsavel, prazo e confirmacao.'),
+  ('whatsapp', '/enviar', 'Envia mensagem para paciente somente com aprovacao e politica de janela.', 'secretario-clinica', 'approval_required', 'Destino, texto, regra WhatsApp e comprovante.'),
+  ('telegram', '/status', 'Estado dos webhooks, filas, deploy, banco e OpenClaw.', 'openclaw-router', 'read', 'OK/risco/falha por servico.'),
+  ('whatsapp', '/resumir', 'Resumo de reunioes, decisoes e tarefas.', 'fireflies-memoria', 'read', 'Decisoes, tarefas, donos e memoria permanente.'),
+  ('telegram', '/resumir', 'Resumo de reunioes, decisoes e tarefas.', 'fireflies-memoria', 'read', 'Decisoes, tarefas, donos e memoria permanente.')
+on conflict (channel, command) do update set
+  description = excluded.description,
+  agent_key = excluded.agent_key,
+  permission_level = excluded.permission_level,
+  output_contract = excluded.output_contract,
+  enabled = true,
+  updated_at = now();
