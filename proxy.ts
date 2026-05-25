@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/api/health', '/api/webhooks', '/api/commands'];
+const PUBLIC_PATHS = ['/api/health', '/api/webhooks', '/api/commands', '/api/telegram/webhook'];
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;

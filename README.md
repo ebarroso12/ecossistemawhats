@@ -82,7 +82,7 @@ Para ativar webhook real:
 2. enviar uma mensagem para o bot;
 3. obter o `chat_id` autorizado;
 4. configurar `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS` e `OPENCLAW_TELEGRAM_WEBHOOK_SECRET` no Vercel;
-5. apontar o webhook do Telegram para o hub OpenClaw ou para `/api/commands` com payload normalizado.
+5. apontar o webhook do Telegram para `/api/telegram/webhook`.
 
 ## Microtarefas
 

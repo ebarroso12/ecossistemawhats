@@ -100,6 +100,22 @@ paths:
           description: Invalid bearer or Telegram secret
         "403":
           description: Sender not allowed
+  /api/telegram/webhook:
+    post:
+      summary: Telegram native webhook that normalizes updates into /api/commands
+      security:
+        - telegramSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "202":
+          description: Telegram update accepted
+        "401":
+          description: Invalid Telegram secret token
 components:
   securitySchemes:
     basicAuth:
