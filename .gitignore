@@ -13,3 +13,5 @@ npm-debug.log*
 .integration.production.txt
 
 .vercel
+
+.env*.local

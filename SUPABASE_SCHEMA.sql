@@ -121,6 +121,36 @@ create table if not exists public.ecosystem_microtasks (
   constraint ecosystem_microtasks_priority_check check (priority in ('critical', 'high', 'normal', 'low'))
 );
 
+create table if not exists public.ecosystem_integrations (
+  id uuid primary key default gen_random_uuid(),
+  integration_key text not null unique,
+  name text not null,
+  provider text not null,
+  category text not null default 'automation',
+  enabled boolean not null default false,
+  health text not null default 'not_tested',
+  status_detail text not null default 'Aguardando configuracao.',
+  config jsonb not null default '{}'::jsonb,
+  last_test_at timestamptz,
+  last_test_status text not null default 'not_tested',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ecosystem_integrations_health_check check (health in ('ok', 'warn', 'fail', 'not_tested')),
+  constraint ecosystem_integrations_last_test_status_check check (last_test_status in ('ok', 'warn', 'fail', 'not_tested'))
+);
+
+create table if not exists public.ecosystem_integration_logs (
+  id uuid primary key default gen_random_uuid(),
+  integration_id uuid references public.ecosystem_integrations(id) on delete cascade,
+  integration_key text not null,
+  action text not null,
+  status text not null,
+  detail text not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  constraint ecosystem_integration_logs_status_check check (status in ('ok', 'warn', 'fail', 'info'))
+);
+
 create index if not exists ecosystem_events_created_at_idx on public.ecosystem_events (created_at desc);
 create index if not exists ecosystem_events_source_status_idx on public.ecosystem_events (source, status);
 create index if not exists ecosystem_events_payload_gin_idx on public.ecosystem_events using gin (payload);
@@ -134,6 +164,8 @@ create index if not exists ecosystem_commands_channel_enabled_idx on public.ecos
 create index if not exists ecosystem_microtasks_status_priority_idx on public.ecosystem_microtasks (status, priority);
 create index if not exists ecosystem_microtasks_agent_channel_idx on public.ecosystem_microtasks (agent_key, channel);
 create index if not exists ecosystem_microtasks_due_at_idx on public.ecosystem_microtasks (due_at);
+create index if not exists ecosystem_integrations_enabled_idx on public.ecosystem_integrations (enabled, health);
+create index if not exists ecosystem_integration_logs_key_created_idx on public.ecosystem_integration_logs (integration_key, created_at desc);
 
 alter table public.ecosystem_contacts enable row level security;
 alter table public.ecosystem_events enable row level security;
@@ -142,6 +174,8 @@ alter table public.ecosystem_messages enable row level security;
 alter table public.ecosystem_agents enable row level security;
 alter table public.ecosystem_commands enable row level security;
 alter table public.ecosystem_microtasks enable row level security;
+alter table public.ecosystem_integrations enable row level security;
+alter table public.ecosystem_integration_logs enable row level security;
 
 drop policy if exists "service role manages contacts" on public.ecosystem_contacts;
 drop policy if exists "service role manages events" on public.ecosystem_events;
@@ -150,6 +184,8 @@ drop policy if exists "service role manages messages" on public.ecosystem_messag
 drop policy if exists "service role manages agents" on public.ecosystem_agents;
 drop policy if exists "service role manages commands" on public.ecosystem_commands;
 drop policy if exists "service role manages microtasks" on public.ecosystem_microtasks;
+drop policy if exists "service role manages integrations" on public.ecosystem_integrations;
+drop policy if exists "service role manages integration logs" on public.ecosystem_integration_logs;
 
 create policy "service role manages contacts" on public.ecosystem_contacts
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
@@ -171,6 +207,12 @@ create policy "service role manages commands" on public.ecosystem_commands
 
 create policy "service role manages microtasks" on public.ecosystem_microtasks
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
+
+create policy "service role manages integrations" on public.ecosystem_integrations
+  as permissive for all to service_role using (true) with check (true);
+
+create policy "service role manages integration logs" on public.ecosystem_integration_logs
+  as permissive for all to service_role using (true) with check (true);
 
 insert into public.ecosystem_agents (agent_key, name, role, channel_scope, workspace_path, metadata)
 values
@@ -212,4 +254,21 @@ on conflict (channel, command) do update set
   permission_level = excluded.permission_level,
   output_contract = excluded.output_contract,
   enabled = true,
+  updated_at = now();
+
+insert into public.ecosystem_integrations (integration_key, name, provider, category, enabled, health, status_detail, config, last_test_status)
+values
+  ('whatsapp-openclaw', 'WhatsApp / OpenClaw', 'OpenClaw VPS', 'messaging', true, 'ok', 'Canal principal para mensagens aprovadas.', '{"requiresApproval":true,"secretMasked":true}', 'ok'),
+  ('telegram', 'Telegram', 'Bot Telegram', 'messaging', true, 'ok', 'Bot operacional para comandos e alertas.', '{"bot":"EdsonOpenclaw_bot","secretMasked":true}', 'ok'),
+  ('webflow', 'Webflow', 'Webflow Forms', 'webhook', true, 'ok', 'Formularios chegam por webhook assinado.', '{"hmac":true,"secretMasked":true}', 'ok'),
+  ('fireflies', 'Fireflies', 'Fireflies.ai', 'memory', false, 'not_tested', 'Preparado para transformar reunioes em tarefas.', '{"secretMasked":true}', 'not_tested'),
+  ('crm', 'CRM', 'CRM externo', 'crm', false, 'not_tested', 'Preparado para pipeline e retornos.', '{"secretMasked":true}', 'not_tested'),
+  ('supabase', 'Supabase', 'Supabase', 'database', true, 'ok', 'Postgres operacional para dados do painel.', '{"rls":true,"serviceRoleServerOnly":true}', 'ok'),
+  ('vercel', 'Vercel', 'Vercel', 'deploy', true, 'ok', 'Deploy e variaveis do painel.', '{"project":"ecossistemawhats","secretMasked":true}', 'ok')
+on conflict (integration_key) do update set
+  name = excluded.name,
+  provider = excluded.provider,
+  category = excluded.category,
+  status_detail = excluded.status_detail,
+  config = public.ecosystem_integrations.config || excluded.config,
   updated_at = now();

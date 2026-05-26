@@ -64,6 +64,33 @@ export type EcosystemAgentCommand = {
   enabled: boolean;
 };
 
+export type EcosystemIntegration = {
+  id: string;
+  integration_key: string;
+  name: string;
+  provider: string;
+  category: string;
+  enabled: boolean;
+  health: 'ok' | 'warn' | 'fail' | 'not_tested';
+  status_detail: string;
+  config: Record<string, unknown>;
+  last_test_at: string | null;
+  last_test_status: 'ok' | 'warn' | 'fail' | 'not_tested';
+  created_at: string;
+  updated_at: string;
+};
+
+export type EcosystemIntegrationLog = {
+  id: string;
+  integration_id: string | null;
+  integration_key: string;
+  action: string;
+  status: 'ok' | 'warn' | 'fail' | 'info';
+  detail: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 export type DashboardData = {
   events: EcosystemEvent[];
   tasks: EcosystemTask[];
@@ -73,6 +100,8 @@ export type DashboardData = {
   ops: EcosystemOpsStatus[];
   agents: EcosystemAgentStatus[];
   routines: EcosystemRoutineStatus[];
+  integrations: EcosystemIntegration[];
+  integrationLogs: EcosystemIntegrationLog[];
   degraded: boolean;
   source: 'supabase' | 'sample-data';
   kpis: {
@@ -326,6 +355,110 @@ export const sampleDashboardData: DashboardData = {
     { id: 'cmd4', channel: 'telegram', command: '/status', agent_key: 'openclaw-router', permission_level: 'read', description: 'Estado dos webhooks, filas, deploy, banco e OpenClaw.', output_contract: 'OK/risco/falha por servico.', enabled: true },
     { id: 'cmd5', channel: 'whatsapp', command: '/enviar', agent_key: 'secretario-clinica', permission_level: 'approval_required', description: 'Envia mensagem para paciente somente com aprovacao e politica de janela.', output_contract: 'Destino, texto, regra WhatsApp, comprovante.', enabled: true },
   ],
+  integrations: [
+    {
+      id: 'i1',
+      integration_key: 'whatsapp-openclaw',
+      name: 'WhatsApp / OpenClaw',
+      provider: 'OpenClaw VPS',
+      category: 'messaging',
+      enabled: true,
+      health: 'ok',
+      status_detail: 'Canal principal para mensagens aprovadas.',
+      config: { requiresApproval: true, secretMasked: true },
+      last_test_at: now.toISOString(),
+      last_test_status: 'ok',
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    },
+    {
+      id: 'i2',
+      integration_key: 'telegram',
+      name: 'Telegram',
+      provider: 'Bot Telegram',
+      category: 'messaging',
+      enabled: true,
+      health: 'ok',
+      status_detail: 'Comandos e alertas operacionais.',
+      config: { bot: 'EdsonOpenclaw_bot', secretMasked: true },
+      last_test_at: now.toISOString(),
+      last_test_status: 'ok',
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    },
+    {
+      id: 'i3',
+      integration_key: 'webflow',
+      name: 'Webflow',
+      provider: 'Webflow Forms',
+      category: 'webhook',
+      enabled: true,
+      health: 'ok',
+      status_detail: 'Formularios chegam por webhook assinado.',
+      config: { hmac: true, secretMasked: true },
+      last_test_at: now.toISOString(),
+      last_test_status: 'ok',
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    },
+    {
+      id: 'i4',
+      integration_key: 'fireflies',
+      name: 'Fireflies',
+      provider: 'Fireflies.ai',
+      category: 'memory',
+      enabled: false,
+      health: 'not_tested',
+      status_detail: 'Preparado para transformar reunioes em tarefas.',
+      config: { secretMasked: true },
+      last_test_at: null,
+      last_test_status: 'not_tested',
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    },
+    {
+      id: 'i5',
+      integration_key: 'crm',
+      name: 'CRM',
+      provider: 'CRM externo',
+      category: 'crm',
+      enabled: false,
+      health: 'not_tested',
+      status_detail: 'Preparado para pipeline e retornos.',
+      config: { secretMasked: true },
+      last_test_at: null,
+      last_test_status: 'not_tested',
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    },
+    {
+      id: 'i6',
+      integration_key: 'supabase',
+      name: 'Supabase',
+      provider: 'Supabase',
+      category: 'database',
+      enabled: true,
+      health: 'ok',
+      status_detail: 'Postgres operacional para dados do painel.',
+      config: { rls: true, serviceRoleServerOnly: true },
+      last_test_at: now.toISOString(),
+      last_test_status: 'ok',
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    },
+  ],
+  integrationLogs: [
+    {
+      id: 'log1',
+      integration_id: 'i1',
+      integration_key: 'whatsapp-openclaw',
+      action: 'test',
+      status: 'ok',
+      detail: 'Canal principal pronto para mensagens aprovadas.',
+      metadata: {},
+      created_at: now.toISOString(),
+    },
+  ],
   events: [
     {
       id: 'e1',
@@ -387,12 +520,14 @@ export async function getDashboardData(): Promise<DashboardData> {
   const ops = await getOpsStatus();
   if (!supabase) return { ...sampleDashboardData, ops };
 
-  const [eventsResult, tasksResult, contactsResult, microtasksResult, commandsResult] = await Promise.all([
+  const [eventsResult, tasksResult, contactsResult, microtasksResult, commandsResult, integrationsResult, integrationLogsResult] = await Promise.all([
     supabase.from('ecosystem_events').select('*').order('created_at', { ascending: false }).limit(80),
     supabase.from('ecosystem_tasks').select('*').order('created_at', { ascending: false }).limit(40),
     supabase.from('ecosystem_contacts').select('*').order('last_seen_at', { ascending: false }).limit(40),
     supabase.from('ecosystem_microtasks').select('*').order('created_at', { ascending: false }).limit(80),
     supabase.from('ecosystem_commands').select('*').eq('enabled', true).order('command', { ascending: true }).limit(80),
+    supabase.from('ecosystem_integrations').select('*').order('name', { ascending: true }).limit(80),
+    supabase.from('ecosystem_integration_logs').select('*').order('created_at', { ascending: false }).limit(80),
   ]);
 
   if (eventsResult.error || tasksResult.error || contactsResult.error || microtasksResult.error || commandsResult.error) {
@@ -409,6 +544,8 @@ export async function getDashboardData(): Promise<DashboardData> {
   const contacts = (contactsResult.data ?? []) as EcosystemContact[];
   const microtasks = (microtasksResult.data ?? []) as EcosystemMicroTask[];
   const commands = (commandsResult.data ?? []) as EcosystemAgentCommand[];
+  const integrations = integrationsResult.error ? sampleDashboardData.integrations : (integrationsResult.data ?? []) as EcosystemIntegration[];
+  const integrationLogs = integrationLogsResult.error ? sampleDashboardData.integrationLogs : (integrationLogsResult.data ?? []) as EcosystemIntegrationLog[];
   const today = new Date().toISOString().slice(0, 10);
 
   return {
@@ -432,7 +569,143 @@ export async function getDashboardData(): Promise<DashboardData> {
     },
     agents: sampleDashboardData.agents,
     routines: sampleDashboardData.routines,
+    integrations,
+    integrationLogs,
   };
+}
+
+export async function listIntegrations() {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { integrations: sampleDashboardData.integrations, logs: sampleDashboardData.integrationLogs, degraded: true };
+
+  const [integrationsResult, logsResult] = await Promise.all([
+    supabase.from('ecosystem_integrations').select('*').order('name', { ascending: true }).limit(80),
+    supabase.from('ecosystem_integration_logs').select('*').order('created_at', { ascending: false }).limit(80),
+  ]);
+
+  if (integrationsResult.error || logsResult.error) {
+    return { integrations: sampleDashboardData.integrations, logs: sampleDashboardData.integrationLogs, degraded: true };
+  }
+
+  return {
+    integrations: (integrationsResult.data ?? []) as EcosystemIntegration[],
+    logs: (logsResult.data ?? []) as EcosystemIntegrationLog[],
+    degraded: false,
+  };
+}
+
+export async function createIntegration(input: { name: string; provider: string; category: string }) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error('Supabase nao configurado no servidor.');
+
+  const integrationKey = slugify(`${input.provider}-${input.name}`);
+  const { data, error } = await supabase
+    .from('ecosystem_integrations')
+    .insert({
+      integration_key: integrationKey,
+      name: input.name,
+      provider: input.provider,
+      category: input.category || 'automation',
+      enabled: false,
+      health: 'not_tested',
+      status_detail: 'Criada pelo painel premium. Configure antes de ligar.',
+      config: { createdFromDashboard: true, secretMasked: true },
+      last_test_status: 'not_tested',
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  await writeIntegrationLog(integrationKey, data.id, 'create', 'info', 'Integracao criada pelo painel premium.');
+  return data as EcosystemIntegration;
+}
+
+export async function updateIntegration(id: string, input: Partial<Pick<EcosystemIntegration, 'enabled' | 'name' | 'provider' | 'category' | 'status_detail'>>) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error('Supabase nao configurado no servidor.');
+
+  const payload = {
+    ...input,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('ecosystem_integrations')
+    .update(payload)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  await writeIntegrationLog(data.integration_key, data.id, 'update', 'info', input.enabled === undefined ? 'Configuracao atualizada.' : `Integracao ${input.enabled ? 'ligada' : 'desligada'}.`);
+  return data as EcosystemIntegration;
+}
+
+export async function testIntegration(id: string) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error('Supabase nao configurado no servidor.');
+
+  const { data: current, error: readError } = await supabase
+    .from('ecosystem_integrations')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (readError) throw new Error(readError.message);
+
+  const status = current.enabled ? 'ok' : 'warn';
+  const detail = current.enabled
+    ? 'Teste interno concluido. Integracao ligada e configuracao registrada.'
+    : 'Teste interno concluido. Integracao existe, mas esta desligada.';
+  const testedAt = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('ecosystem_integrations')
+    .update({
+      health: status,
+      last_test_status: status,
+      last_test_at: testedAt,
+      status_detail: detail,
+      updated_at: testedAt,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  await writeIntegrationLog(current.integration_key, current.id, 'test', status, detail, { simulated: true });
+  return data as EcosystemIntegration;
+}
+
+async function writeIntegrationLog(
+  integrationKey: string,
+  integrationId: string | null,
+  action: string,
+  status: EcosystemIntegrationLog['status'],
+  detail: string,
+  metadata: Record<string, unknown> = {},
+) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return;
+
+  await supabase.from('ecosystem_integration_logs').insert({
+    integration_id: integrationId,
+    integration_key: integrationKey,
+    action,
+    status,
+    detail,
+    metadata,
+  });
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64) || `integration-${Date.now()}`;
 }
 
 async function getOpsStatus(): Promise<EcosystemOpsStatus[]> {

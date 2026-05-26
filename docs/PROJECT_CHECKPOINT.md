@@ -1,6 +1,6 @@
 # Project Checkpoint
 
-Date: 2026-05-25
+Date: 2026-05-26
 
 ## Links
 
@@ -11,9 +11,9 @@ Date: 2026-05-25
 
 ## Saved State
 
-- Saved commit: `91ebc65 Make dashboard navigation and auth settings functional`
-- Remote `origin/main`: `91ebc65cb9af3f2d3baabdbf9b89d2dd5e4d4f1e`
-- Production health verified: `database=supabase`, `vercel=true`
+- Previous saved commit: `bf5d9ad docs: add project restart checkpoint`
+- Production health verified after premium deploy: `database=supabase`, `vercel=true`
+- Latest production alias: `https://ecossistemawhats.vercel.app`
 
 ## Done
 
@@ -21,14 +21,34 @@ Date: 2026-05-25
 - Sidebar navigation made functional.
 - Settings screen added.
 - User/password update API added at `/api/settings/auth`.
-- Vercel env dependencies configured for credential update flow.
-- Desktop backup created.
-- GitHub push completed.
+- Premium integrations plan documented in `docs/PREMIUM_INTEGRATIONS_PLAN.md`.
+- Premium integrations screen implemented in the `Automacoes` tab.
+- Integration API routes added:
+  - `GET /api/integrations`
+  - `POST /api/integrations`
+  - `PATCH /api/integrations/[id]`
+  - `POST /api/integrations/[id]/test`
+- Supabase schema expanded with:
+  - `ecosystem_integrations`
+  - `ecosystem_integration_logs`
+- Production deploy completed.
+
+## Verification
+
+- `npm run lint`: passed.
+- `npm run build`: passed.
+- `curl https://ecossistemawhats.vercel.app/api/health`: `{"ok":true,"service":"ecossistemawhats","database":"supabase","vercel":true}`.
+- `curl https://ecossistemawhats.vercel.app/api/integrations`: returns fallback integration data with `degraded=true` until the Supabase schema is applied.
+
+## Current Gap
+
+The production Supabase database does not yet have `public.ecosystem_integrations` and `public.ecosystem_integration_logs`.
+Apply the updated `SUPABASE_SCHEMA.sql` in Supabase SQL editor or via authenticated Supabase MCP/CLI to activate real persistence for the premium integrations screen.
 
 ## Token-Saving Operating Mode
 
 - Use `caveman` at `ultra`.
-- Use `terminal-output-compressor` before consuming logs over ~80 lines.
+- Use `terminal-output-compressor` before consuming logs over 80 lines.
 - Do not paste raw build/test/deploy/CI logs unless explicitly requested.
 - Use:
 
@@ -48,13 +68,10 @@ node C:\Users\Cliente\.codex\skills\terminal-output-compressor\scripts\crush-log
 
 ## Next Microtasks
 
-1. Write premium product documentation.
-2. Build premium integrations screen.
-3. Add toggle `Ligado/Desligado` to each integration.
-4. Add `Adicionar integração`.
-5. Add `Configurar`, `Testar`, `Ver logs`.
-6. Persist integration settings in Supabase.
-7. Verify and deploy.
+1. Apply updated `SUPABASE_SCHEMA.sql` to production Supabase.
+2. Re-test `GET /api/integrations` and confirm `degraded=false`.
+3. Test `Adicionar`, `Configurar`, `Testar`, `Ver logs` against real Supabase tables.
+4. Copy latest repo state to Desktop backup.
 
 ## Constraints
 

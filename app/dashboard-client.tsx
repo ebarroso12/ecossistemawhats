@@ -9,11 +9,11 @@ import {
   CheckCircle2,
   Database,
   GitBranch,
-  Globe2,
   KeyRound,
   Lock,
   MessageSquareText,
-  Mic,
+  PlugZap,
+  Plus,
   Radio,
   Save,
   Search,
@@ -25,10 +25,11 @@ import {
   UserRound,
   Workflow,
 } from 'lucide-react';
-import type { DashboardData, EcosystemEvent, EcosystemOpsStatus } from '@/lib';
+import type { DashboardData, EcosystemEvent, EcosystemIntegration, EcosystemIntegrationLog, EcosystemOpsStatus } from '@/lib';
 
 type TabKey = 'visao' | 'conversas' | 'webhooks' | 'contatos' | 'tarefas' | 'microtarefas' | 'automacoes' | 'banco' | 'configuracoes';
 type AuthSaveState = 'idle' | 'saving' | 'saved' | 'error';
+type IntegrationActionState = { id: string; action: 'toggle' | 'test' | 'add' | 'configure' | 'logs' } | null;
 
 const navItems: Array<{ key: TabKey; label: string; icon: typeof Activity }> = [
   { key: 'visao', label: 'Visao geral', icon: Activity },
@@ -40,15 +41,6 @@ const navItems: Array<{ key: TabKey; label: string; icon: typeof Activity }> = [
   { key: 'automacoes', label: 'Automacoes', icon: Workflow },
   { key: 'banco', label: 'Banco de dados', icon: Database },
   { key: 'configuracoes', label: 'Configuracoes', icon: Settings },
-];
-
-const automations = [
-  { name: 'WhatsApp', icon: MessageSquareText, status: 'Operacional', detail: 'OpenClaw entrega mensagens e usa fallback pelo hub.' },
-  { name: 'Webflow', icon: Globe2, status: 'HMAC ativo', detail: 'Formularios, publicacoes e eventos entram por webhook.' },
-  { name: 'Fireflies', icon: Mic, status: 'Preparado', detail: 'Reunioes viram tarefas e memoria operacional.' },
-  { name: 'CRM', icon: UserRound, status: 'Preparado', detail: 'Contatos, pipeline e retornos em uma fila.' },
-  { name: 'Supabase', icon: Database, status: 'Schema pronto', detail: 'Postgres, RLS, indices e dados do painel.' },
-  { name: 'OpenClaw', icon: Bot, status: 'Agentes IA', detail: 'Workspace, memoria e execucao assistida.' },
 ];
 
 function fmt(value: number) {
@@ -109,6 +101,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [query, setQuery] = useState('');
   const [authState, setAuthState] = useState<AuthSaveState>('idle');
   const [authMessage, setAuthMessage] = useState('');
+  const [integrations, setIntegrations] = useState(data.integrations);
+  const [integrationLogs, setIntegrationLogs] = useState(data.integrationLogs);
+  const [integrationAction, setIntegrationAction] = useState<IntegrationActionState>(null);
+  const [integrationMessage, setIntegrationMessage] = useState('');
+  const [showAddIntegration, setShowAddIntegration] = useState(false);
+  const [showIntegrationLogs, setShowIntegrationLogs] = useState<string | null>(null);
+  const [configIntegration, setConfigIntegration] = useState<EcosystemIntegration | null>(null);
   const selected = data.events[0];
 
   const filteredEvents = useMemo(() => {
@@ -148,6 +147,119 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     setAuthState('saved');
     setAuthMessage(result.message || 'Credenciais atualizadas.');
     event.currentTarget.reset();
+  }
+
+  async function refreshIntegrations() {
+    const response = await fetch('/api/integrations', { cache: 'no-store' });
+    const result = await response.json().catch(() => ({ error: 'Resposta invalida.' })) as {
+      ok?: boolean;
+      integrations?: EcosystemIntegration[];
+      logs?: EcosystemIntegrationLog[];
+      error?: string;
+    };
+
+    if (!response.ok || !result.ok || !result.integrations || !result.logs) {
+      throw new Error(result.error || 'Nao foi possivel atualizar integracoes.');
+    }
+
+    setIntegrations(result.integrations);
+    setIntegrationLogs(result.logs);
+  }
+
+  async function toggleIntegration(integration: EcosystemIntegration) {
+    setIntegrationAction({ id: integration.id, action: 'toggle' });
+    setIntegrationMessage('');
+    try {
+      const response = await fetch(`/api/integrations/${integration.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !integration.enabled }),
+      });
+      const result = await response.json().catch(() => ({ error: 'Resposta invalida.' })) as { ok?: boolean; integration?: EcosystemIntegration; error?: string };
+      if (!response.ok || !result.ok || !result.integration) throw new Error(result.error || 'Falha ao alterar integracao.');
+      setIntegrations((items) => items.map((item) => (item.id === integration.id ? result.integration! : item)));
+      await refreshIntegrations();
+      setIntegrationMessage(`Integracao ${result.integration.enabled ? 'ligada' : 'desligada'}.`);
+    } catch (error) {
+      setIntegrationMessage(error instanceof Error ? error.message : 'Erro ao alterar integracao.');
+    } finally {
+      setIntegrationAction(null);
+    }
+  }
+
+  async function testIntegration(integration: EcosystemIntegration) {
+    setIntegrationAction({ id: integration.id, action: 'test' });
+    setIntegrationMessage('');
+    try {
+      const response = await fetch(`/api/integrations/${integration.id}/test`, { method: 'POST' });
+      const result = await response.json().catch(() => ({ error: 'Resposta invalida.' })) as { ok?: boolean; integration?: EcosystemIntegration; error?: string };
+      if (!response.ok || !result.ok || !result.integration) throw new Error(result.error || 'Falha ao testar integracao.');
+      setIntegrations((items) => items.map((item) => (item.id === integration.id ? result.integration! : item)));
+      await refreshIntegrations();
+      setIntegrationMessage('Teste registrado.');
+    } catch (error) {
+      setIntegrationMessage(error instanceof Error ? error.message : 'Erro ao testar integracao.');
+    } finally {
+      setIntegrationAction(null);
+    }
+  }
+
+  async function addIntegration(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIntegrationAction({ id: 'new', action: 'add' });
+    setIntegrationMessage('');
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await fetch('/api/integrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(form.get('name') || ''),
+          provider: String(form.get('provider') || ''),
+          category: String(form.get('category') || 'automation'),
+        }),
+      });
+      const result = await response.json().catch(() => ({ error: 'Resposta invalida.' })) as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) throw new Error(result.error || 'Falha ao criar integracao.');
+      await refreshIntegrations();
+      setShowAddIntegration(false);
+      setIntegrationMessage('Integracao adicionada.');
+      event.currentTarget.reset();
+    } catch (error) {
+      setIntegrationMessage(error instanceof Error ? error.message : 'Erro ao adicionar integracao.');
+    } finally {
+      setIntegrationAction(null);
+    }
+  }
+
+  async function saveIntegrationConfig(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!configIntegration) return;
+    setIntegrationAction({ id: configIntegration.id, action: 'configure' });
+    setIntegrationMessage('');
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await fetch(`/api/integrations/${configIntegration.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(form.get('name') || ''),
+          provider: String(form.get('provider') || ''),
+          category: String(form.get('category') || ''),
+          status_detail: String(form.get('status_detail') || ''),
+        }),
+      });
+      const result = await response.json().catch(() => ({ error: 'Resposta invalida.' })) as { ok?: boolean; integration?: EcosystemIntegration; error?: string };
+      if (!response.ok || !result.ok || !result.integration) throw new Error(result.error || 'Falha ao salvar configuracao.');
+      setIntegrations((items) => items.map((item) => (item.id === configIntegration.id ? result.integration! : item)));
+      await refreshIntegrations();
+      setConfigIntegration(null);
+      setIntegrationMessage('Configuracao salva.');
+    } catch (error) {
+      setIntegrationMessage(error instanceof Error ? error.message : 'Erro ao salvar configuracao.');
+    } finally {
+      setIntegrationAction(null);
+    }
   }
 
   return (
@@ -289,7 +401,25 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
             {activeTab === 'tarefas' && <TasksPanel data={data} />}
             {activeTab === 'microtarefas' && <MicrotasksPanel data={data} />}
-            {activeTab === 'automacoes' && <AutomationsPanel data={data} />}
+            {activeTab === 'automacoes' && (
+              <AutomationsPanel
+                data={data}
+                integrations={integrations}
+                logs={integrationLogs}
+                action={integrationAction}
+                message={integrationMessage}
+                showAdd={showAddIntegration}
+                showLogsFor={showIntegrationLogs}
+                configIntegration={configIntegration}
+                onToggle={toggleIntegration}
+                onTest={testIntegration}
+                onAdd={addIntegration}
+                onSaveConfig={saveIntegrationConfig}
+                onShowAdd={setShowAddIntegration}
+                onShowLogs={setShowIntegrationLogs}
+                onConfig={setConfigIntegration}
+              />
+            )}
             {activeTab === 'banco' && <DatabasePanel data={data} />}
             {activeTab === 'configuracoes' && (
               <SettingsPanel authState={authState} authMessage={authMessage} onSaveAuth={saveAuth} />
@@ -567,24 +697,261 @@ function MicrotasksPanel({ data }: { data: DashboardData }) {
   );
 }
 
-function AutomationsPanel({ data }: { data: DashboardData }) {
+function integrationHealthClass(status: EcosystemIntegration['health'] | EcosystemIntegrationLog['status']) {
+  if (status === 'ok') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  if (status === 'fail') return 'border-red-200 bg-red-50 text-red-700';
+  if (status === 'warn') return 'border-amber-200 bg-amber-50 text-amber-700';
+  return 'border-slate-200 bg-slate-100 text-slate-600';
+}
+
+function integrationStatusText(status: EcosystemIntegration['health'] | EcosystemIntegrationLog['status']) {
+  const map: Record<string, string> = {
+    ok: 'ok',
+    warn: 'atencao',
+    fail: 'falha',
+    info: 'info',
+    not_tested: 'nao testado',
+  };
+  return map[status] ?? status;
+}
+
+function AutomationsPanel({
+  data,
+  integrations,
+  logs,
+  action,
+  message,
+  showAdd,
+  showLogsFor,
+  configIntegration,
+  onToggle,
+  onTest,
+  onAdd,
+  onSaveConfig,
+  onShowAdd,
+  onShowLogs,
+  onConfig,
+}: {
+  data: DashboardData;
+  integrations: EcosystemIntegration[];
+  logs: EcosystemIntegrationLog[];
+  action: IntegrationActionState;
+  message: string;
+  showAdd: boolean;
+  showLogsFor: string | null;
+  configIntegration: EcosystemIntegration | null;
+  onToggle: (integration: EcosystemIntegration) => void;
+  onTest: (integration: EcosystemIntegration) => void;
+  onAdd: (event: FormEvent<HTMLFormElement>) => void;
+  onSaveConfig: (event: FormEvent<HTMLFormElement>) => void;
+  onShowAdd: (value: boolean) => void;
+  onShowLogs: (value: string | null) => void;
+  onConfig: (integration: EcosystemIntegration | null) => void;
+}) {
+  const enabledCount = integrations.filter((integration) => integration.enabled).length;
+  const healthyCount = integrations.filter((integration) => integration.health === 'ok').length;
+  const selectedLogs = showLogsFor ? logs.filter((log) => log.integration_key === showLogsFor).slice(0, 8) : logs.slice(0, 8);
+
   return (
     <div className="space-y-5">
       <OperationalHealth data={data} />
       <Panel className="p-4">
-        <div className="mb-4">
-          <h2 className="text-sm font-bold">Fluxos do ecossistema</h2>
-          <p className="text-xs text-slate-500">Cada bloco vira memoria, contato, tarefa ou conversa.</p>
+        <div className="mb-4 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
+          <div>
+            <h2 className="text-sm font-bold">Integracoes premium</h2>
+            <p className="text-xs text-slate-500">Controle operacional com Ligado/Desligado, configurar, testar e logs persistidos no Supabase.</p>
+          </div>
+          <div className="flex gap-2 max-md:flex-wrap">
+            <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+              {enabledCount}/{integrations.length} ligadas
+            </span>
+            <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+              {healthyCount} ok
+            </span>
+            <button
+              type="button"
+              onClick={() => onShowAdd(true)}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-teal-700 px-3 text-sm font-semibold text-white"
+            >
+              <Plus size={15} />
+              Adicionar
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-1">
-          {automations.map(({ name, icon: Icon, status, detail }) => (
-            <div key={name} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <Icon size={18} className="mb-3 text-blue-700" />
-              <p className="text-sm font-bold">{name}</p>
-              <p className="mt-1 text-xs font-semibold text-teal-700">{status}</p>
-              <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
+
+        {message && (
+          <div className={`mb-4 rounded-lg border px-3 py-2 text-sm ${message.includes('Erro') || message.includes('Falha') ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+            {message}
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3 max-xl:grid-cols-2 max-md:grid-cols-1">
+          {integrations.map((integration) => (
+            <div key={integration.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2">
+                  <PlugZap size={18} className="mt-0.5 shrink-0 text-blue-700" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold">{integration.name}</p>
+                    <p className="truncate text-xs text-slate-500">{integration.provider} - {integration.category}</p>
+                  </div>
+                </div>
+                <span className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-semibold uppercase ${integrationHealthClass(integration.health)}`}>
+                  {integrationStatusText(integration.health)}
+                </span>
+              </div>
+
+              <p className="min-h-10 text-xs leading-5 text-slate-600">{integration.status_detail}</p>
+              <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <span className="text-xs font-semibold text-slate-600">Ligado/Desligado</span>
+                <button
+                  type="button"
+                  onClick={() => onToggle(integration)}
+                  disabled={action?.id === integration.id}
+                  className={`h-7 w-14 rounded-full p-1 transition disabled:opacity-60 ${integration.enabled ? 'bg-teal-700' : 'bg-slate-300'}`}
+                  aria-label={`${integration.enabled ? 'Desligar' : 'Ligar'} ${integration.name}`}
+                >
+                  <span className={`block h-5 w-5 rounded-full bg-white transition ${integration.enabled ? 'translate-x-7' : 'translate-x-0'}`} />
+                </button>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onConfig(integration)}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
+                >
+                  Configurar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTest(integration)}
+                  disabled={action?.id === integration.id && action.action === 'test'}
+                  className="rounded-lg bg-blue-700 px-2 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  {action?.id === integration.id && action.action === 'test' ? 'Testando' : 'Testar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onShowLogs(showLogsFor === integration.integration_key ? null : integration.integration_key)}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
+                >
+                  Ver logs
+                </button>
+              </div>
+              <p className="mt-3 text-[11px] text-slate-500">
+                Ultimo teste: {integration.last_test_at ? new Date(integration.last_test_at).toLocaleString('pt-BR') : 'nao testado'}
+              </p>
             </div>
           ))}
+        </div>
+      </Panel>
+
+      {showAdd && (
+        <Panel className="p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-bold">Adicionar integracao</h2>
+            <button type="button" onClick={() => onShowAdd(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">
+              Fechar
+            </button>
+          </div>
+          <form onSubmit={onAdd} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 max-lg:grid-cols-1">
+            <label>
+              <span className="text-xs font-semibold text-slate-600">Nome</span>
+              <input name="name" required minLength={3} className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-700" placeholder="Agenda online" />
+            </label>
+            <label>
+              <span className="text-xs font-semibold text-slate-600">Provedor</span>
+              <input name="provider" required minLength={2} className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-700" placeholder="Fornecedor" />
+            </label>
+            <label>
+              <span className="text-xs font-semibold text-slate-600">Categoria</span>
+              <select name="category" className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-700">
+                <option value="automation">Automacao</option>
+                <option value="messaging">Mensagens</option>
+                <option value="webhook">Webhook</option>
+                <option value="crm">CRM</option>
+                <option value="database">Banco</option>
+                <option value="memory">Memoria</option>
+              </select>
+            </label>
+            <button type="submit" disabled={action?.action === 'add'} className="mt-5 h-10 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white disabled:opacity-60 max-lg:mt-0">
+              {action?.action === 'add' ? 'Adicionando' : 'Adicionar'}
+            </button>
+          </form>
+        </Panel>
+      )}
+
+      {configIntegration && (
+        <Panel className="p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-bold">Configurar {configIntegration.name}</h2>
+            <button type="button" onClick={() => onConfig(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">
+              Fechar
+            </button>
+          </div>
+          <form onSubmit={onSaveConfig} className="space-y-3">
+            <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1">
+              <label>
+                <span className="text-xs font-semibold text-slate-600">Nome</span>
+                <input name="name" required defaultValue={configIntegration.name} className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-700" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold text-slate-600">Provedor</span>
+                <input name="provider" required defaultValue={configIntegration.provider} className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-700" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold text-slate-600">Categoria</span>
+                <input name="category" required defaultValue={configIntegration.category} className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-700" />
+              </label>
+            </div>
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-600">Detalhe operacional</span>
+              <textarea name="status_detail" required defaultValue={configIntegration.status_detail} className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-700" />
+            </label>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              Secrets reais nao sao digitados aqui. Use variaveis do ambiente/Vercel e mantenha chaves fora do navegador.
+            </div>
+            <button type="submit" disabled={action?.id === configIntegration.id && action.action === 'configure'} className="h-10 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white disabled:opacity-60">
+              {action?.id === configIntegration.id && action.action === 'configure' ? 'Salvando' : 'Salvar configuracao'}
+            </button>
+          </form>
+        </Panel>
+      )}
+
+      <Panel>
+        <PanelHeader title={showLogsFor ? `Logs: ${showLogsFor}` : 'Logs recentes de integracoes'} detail="Historico persistido para auditoria operacional." />
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="px-4 py-3">Quando</th>
+                <th className="px-4 py-3">Integracao</th>
+                <th className="px-4 py-3">Acao</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Detalhe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedLogs.map((log) => (
+                <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-3 text-slate-600">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-700">{log.integration_key}</td>
+                  <td className="px-4 py-3 text-slate-600">{log.action}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${integrationHealthClass(log.status)}`}>
+                      {integrationStatusText(log.status)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{log.detail}</td>
+                </tr>
+              ))}
+              {selectedLogs.length === 0 && (
+                <tr>
+                  <td className="px-4 py-6 text-sm text-slate-500" colSpan={5}>Nenhum log registrado.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </Panel>
     </div>
