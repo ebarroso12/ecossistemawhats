@@ -1,0 +1,5 @@
+.chrome-qa-profile*
+.env*
+node_modules
+.next
+test-results

@@ -43,6 +43,10 @@ Date: 2026-05-26
 - `curl https://ecossistemawhats.vercel.app/api/integrations` before auth hardening returned real data with `degraded=false`.
 - Authenticated production API test created/configured/enabled/tested `google-calendar-agenda-online`.
 - Supabase verification query for `google-calendar-agenda-online`: `enabled=true`, `health=ok`, `last_test_status=ok`, `log_count=3`.
+- Authenticated browser visual check completed for `?tab=automacoes`.
+- Evidence screenshots saved:
+  - `docs/premium-integrations-browser-check.png`
+  - `docs/premium-integrations-mobile-check.png`
 
 ## Current Gap
 
@@ -71,9 +75,9 @@ node C:\Users\Cliente\.codex\skills\terminal-output-compressor\scripts\crush-log
 
 ## Next Microtasks
 
-1. Browser-test the authenticated dashboard tab `Automacoes`.
-2. Add provider-specific real health checks one by one.
-3. Copy latest repo state to Desktop backup after final commit.
+1. Add provider-specific real health checks one by one.
+2. Replace simulated integration tests with real provider checks after each provider is approved.
+3. Keep visual screenshots refreshed after major UI changes.
 
 ## Constraints
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, ReactNode, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Activity,
   AlertTriangle,
@@ -91,13 +92,15 @@ function PanelHeader({ title, detail }: { title: string; detail?: string }) {
   return (
     <div className="border-b border-slate-200 px-4 py-3">
       <h2 className="text-sm font-bold text-slate-950">{title}</h2>
-      {detail && <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>}
+      {detail && <p className="mt-1 max-w-full break-words text-xs leading-5 text-slate-500">{detail}</p>}
     </div>
   );
 }
 
 export function DashboardClient({ data }: { data: DashboardData }) {
-  const [activeTab, setActiveTab] = useState<TabKey>('visao');
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<TabKey>(isTabKey(initialTab) ? initialTab : 'visao');
   const [query, setQuery] = useState('');
   const [authState, setAuthState] = useState<AuthSaveState>('idle');
   const [authMessage, setAuthMessage] = useState('');
@@ -263,7 +266,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f8fb] text-slate-950">
+    <main className="min-h-screen overflow-x-hidden bg-[#f6f8fb] text-slate-950">
       <div className="grid min-h-screen grid-cols-[248px_1fr] max-lg:grid-cols-1">
         <aside className="border-r border-slate-200 bg-white px-4 py-5 max-lg:hidden">
           <div className="mb-7 flex items-center gap-3">
@@ -303,33 +306,33 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           </div>
         </aside>
 
-        <section className="min-w-0">
-          <header className="border-b border-slate-200 bg-white px-6 py-4">
+        <section className="min-w-0 max-w-full overflow-hidden">
+          <header className="overflow-hidden border-b border-slate-200 bg-white px-6 py-4 max-md:px-4">
             <div className="flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
-              <div>
-                <h1 className="text-xl font-bold tracking-tight">Central de comando do segundo cerebro</h1>
+              <div className="min-w-0 max-w-full">
+                <h1 className="max-w-full break-words text-xl font-bold tracking-tight max-md:text-lg max-md:leading-6">Central de comando do segundo cerebro</h1>
                 <p className="text-sm text-slate-500">Painel em portugues para WhatsApp, webhooks, pacientes, tarefas, agentes e seguranca.</p>
               </div>
-              <div className="flex items-center gap-2 max-md:flex-wrap">
-                <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-700">
+              <div className="flex items-center gap-2 max-md:grid max-md:w-full max-md:grid-cols-1">
+                <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-700 max-md:w-full">
                   <CheckCircle2 size={15} className="text-emerald-600" />
                   Supabase {data.source === 'supabase' ? 'ativo' : 'demo'}
                 </div>
-                <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-700">
+                <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-700 max-md:w-full">
                   <GitBranch size={15} className="text-blue-600" />
                   Vercel online
                 </div>
                 <button
                   type="button"
                   onClick={() => setActiveTab('configuracoes')}
-                  className="flex h-9 items-center gap-2 rounded-lg bg-teal-700 px-3 text-sm font-semibold text-white"
+                  className="flex h-9 items-center gap-2 rounded-lg bg-teal-700 px-3 text-sm font-semibold text-white max-md:w-full"
                 >
                   <Settings size={15} />
                   Configurar
                 </button>
               </div>
             </div>
-            <div className="mt-4 hidden gap-2 overflow-x-auto max-lg:flex">
+            <div className="mt-4 hidden max-w-full gap-2 overflow-x-auto max-lg:flex">
               {navItems.map(({ key, label }) => (
                 <button
                   key={key}
@@ -345,7 +348,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             </div>
           </header>
 
-          <div className="space-y-5 p-6">
+          <div className="space-y-5 p-6 max-md:p-3">
             {data.degraded && (
               <section className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 Banco Supabase em modo demonstracao neste deploy. Configure variaveis e schema para dados reais.
@@ -431,6 +434,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   );
 }
 
+function isTabKey(value: string | null): value is TabKey {
+  return navItems.some((item) => item.key === value);
+}
+
 function Kpis({ data }: { data: DashboardData }) {
   const items = [
     ['Mensagens', fmt(data.kpis.messagesSent), MessageSquareText, 'WhatsApp enviados'],
@@ -463,9 +470,9 @@ function OperationalHealth({ data }: { data: DashboardData }) {
   return (
     <Panel className="p-4">
       <div className="mb-4 flex items-center justify-between gap-3 max-md:flex-col max-md:items-start">
-        <div>
+        <div className="min-w-0 max-w-full">
           <h2 className="text-sm font-bold">Saude operacional</h2>
-          <p className="text-xs text-slate-500">Vercel, OpenClaw publico e canais validados para operacao do WhatsApp.</p>
+          <p className="max-w-full break-words text-xs text-slate-500">Vercel, OpenClaw publico e canais validados para operacao do WhatsApp.</p>
         </div>
         <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
           {data.ops[0]?.checked_at ? new Date(data.ops[0].checked_at).toLocaleString('pt-BR') : 'Sem leitura'}
@@ -474,7 +481,7 @@ function OperationalHealth({ data }: { data: DashboardData }) {
       <div className="grid grid-cols-4 gap-3 max-xl:grid-cols-2 max-md:grid-cols-1">
         {data.ops.map((item) => (
           <div key={item.service} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div className="mb-3 flex items-start justify-between gap-2">
+            <div className="mb-3 flex items-start justify-between gap-2 max-sm:flex-col max-sm:items-start">
               <div className="flex items-center gap-2">
                 <Server size={17} className="text-teal-700" />
                 <p className="text-sm font-bold text-slate-900">{item.service}</p>
@@ -757,9 +764,9 @@ function AutomationsPanel({
       <OperationalHealth data={data} />
       <Panel className="p-4">
         <div className="mb-4 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
-          <div>
+          <div className="min-w-0 max-w-full">
             <h2 className="text-sm font-bold">Integracoes premium</h2>
-            <p className="text-xs text-slate-500">Controle operacional com Ligado/Desligado, configurar, testar e logs persistidos no Supabase.</p>
+            <p className="max-w-full break-words text-xs text-slate-500">Controle operacional com Ligado/Desligado, configurar, testar e logs persistidos no Supabase.</p>
           </div>
           <div className="flex gap-2 max-md:flex-wrap">
             <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
@@ -788,7 +795,7 @@ function AutomationsPanel({
         <div className="grid grid-cols-3 gap-3 max-xl:grid-cols-2 max-md:grid-cols-1">
           {integrations.map((integration) => (
             <div key={integration.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="mb-3 flex items-start justify-between gap-3 max-sm:flex-col max-sm:items-start">
                 <div className="flex min-w-0 items-start gap-2">
                   <PlugZap size={18} className="mt-0.5 shrink-0 text-blue-700" />
                   <div className="min-w-0">
@@ -814,7 +821,7 @@ function AutomationsPanel({
                   <span className={`block h-5 w-5 rounded-full bg-white transition ${integration.enabled ? 'translate-x-7' : 'translate-x-0'}`} />
                 </button>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="mt-3 grid grid-cols-3 gap-2 max-sm:grid-cols-1">
                 <button
                   type="button"
                   onClick={() => onConfig(integration)}
