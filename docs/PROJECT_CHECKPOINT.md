@@ -38,12 +38,13 @@ Date: 2026-05-26
 - `npm run lint`: passed.
 - `npm run build`: passed.
 - `curl https://ecossistemawhats.vercel.app/api/health`: `{"ok":true,"service":"ecossistemawhats","database":"supabase","vercel":true}`.
-- `curl https://ecossistemawhats.vercel.app/api/integrations`: returns fallback integration data with `degraded=true` until the Supabase schema is applied.
+- Supabase MCP migration `add_premium_integrations`: applied.
+- Supabase verification query: 7 integrations, 1 log, RLS enabled on both premium tables.
+- `curl https://ecossistemawhats.vercel.app/api/integrations` before auth hardening returned real data with `degraded=false`.
 
 ## Current Gap
 
-The production Supabase database does not yet have `public.ecosystem_integrations` and `public.ecosystem_integration_logs`.
-Apply the updated `SUPABASE_SCHEMA.sql` in Supabase SQL editor or via authenticated Supabase MCP/CLI to activate real persistence for the premium integrations screen.
+Premium tables now exist in production Supabase. Integration API is protected by dashboard Basic Auth through `proxy.ts`.
 
 ## Token-Saving Operating Mode
 
@@ -68,10 +69,9 @@ node C:\Users\Cliente\.codex\skills\terminal-output-compressor\scripts\crush-log
 
 ## Next Microtasks
 
-1. Apply updated `SUPABASE_SCHEMA.sql` to production Supabase.
-2. Re-test `GET /api/integrations` and confirm `degraded=false`.
-3. Test `Adicionar`, `Configurar`, `Testar`, `Ver logs` against real Supabase tables.
-4. Copy latest repo state to Desktop backup.
+1. Test `Adicionar`, `Configurar`, `Testar`, `Ver logs` in authenticated browser UI.
+2. Add provider-specific real health checks one by one.
+3. Copy latest repo state to Desktop backup after final commit.
 
 ## Constraints
 
