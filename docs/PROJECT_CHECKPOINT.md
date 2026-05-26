@@ -41,6 +41,8 @@ Date: 2026-05-26
 - Supabase MCP migration `add_premium_integrations`: applied.
 - Supabase verification query: 7 integrations, 1 log, RLS enabled on both premium tables.
 - `curl https://ecossistemawhats.vercel.app/api/integrations` before auth hardening returned real data with `degraded=false`.
+- Authenticated production API test created/configured/enabled/tested `google-calendar-agenda-online`.
+- Supabase verification query for `google-calendar-agenda-online`: `enabled=true`, `health=ok`, `last_test_status=ok`, `log_count=3`.
 
 ## Current Gap
 
@@ -69,7 +71,7 @@ node C:\Users\Cliente\.codex\skills\terminal-output-compressor\scripts\crush-log
 
 ## Next Microtasks
 
-1. Test `Adicionar`, `Configurar`, `Testar`, `Ver logs` in authenticated browser UI.
+1. Browser-test the authenticated dashboard tab `Automacoes`.
 2. Add provider-specific real health checks one by one.
 3. Copy latest repo state to Desktop backup after final commit.
 
